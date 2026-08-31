@@ -1,0 +1,144 @@
+summary: Flow for alert routing with AI
+description: ""
+value:
+  modules:
+    - id: f
+      value:
+        path: u/ianebcondon/classify_alert
+        type: script
+        is_trigger: false
+        input_transforms:
+          dry_run:
+            expr: flow_input.dry_run
+            type: javascript
+          payload:
+            expr: flow_input.payload
+            type: javascript
+      summary: Classify Alert Using AI
+    - id: b
+      value:
+        type: branchone
+        default: []
+        branches:
+          - expr: results.f.severity === "critical"
+            modules:
+              - id: c
+                value:
+                  lock: |
+                    # py: 3.12
+                  type: rawscript
+                  content: |-
+                    import logging
+
+                    logger = logging.getLogger(__name__)
+
+
+                    def main(event: dict) -> dict:
+                        logger.info("Critical incident path selected")
+                        print("Critical incident path selected")
+
+                        return {
+                            **event,
+                            "channel": "#incidents",
+                            "should_page": True,
+                        }
+                  language: python3
+                  input_transforms:
+                    event:
+                      expr: results.f
+                      type: javascript
+                summary: Critical
+            summary: Critical
+            parallel: true
+            skip_failure: true
+          - expr: results.f.severity === "warning"
+            modules:
+              - id: d
+                value:
+                  lock: |
+                    # py: 3.12
+                  type: rawscript
+                  content: |-
+                    import logging
+
+                    logger = logging.getLogger(__name__)
+
+
+                    def main(event: dict) -> dict:
+                        logger.info("Warning alert path selected")
+                        print("Warning alert path selected")
+
+                        return {
+                            **event,
+                            "channel": "#alerts",
+                            "should_page": False,
+                        }
+                  language: python3
+                  input_transforms:
+                    event:
+                      expr: results.f
+                      type: javascript
+                summary: Warning
+            summary: Warning
+            parallel: true
+            skip_failure: true
+          - expr: results.f.severity === "info"
+            modules:
+              - id: e
+                value:
+                  lock: |
+                    # py: 3.12
+                  type: rawscript
+                  content: |-
+                    import logging
+
+                    logger = logging.getLogger(__name__)
+
+
+                    def main(event: dict) -> dict:
+                        logger.info("Monitoring path selected")
+                        print("Monitoring path selected")
+
+                        return {
+                            **event,
+                            "channel": "#monitoring",
+                            "should_page": False,
+                        }
+                  language: python3
+                  input_transforms:
+                    event:
+                      expr: results.f
+                      type: javascript
+                summary: Info
+            summary: Info
+            parallel: true
+            skip_failure: true
+      summary: ""
+    - id: g
+      value:
+        path: u/ianebcondon/notify_slack
+        type: script
+        is_trigger: false
+        input_transforms:
+          event:
+            expr: results.b
+            type: javascript
+          dry_run:
+            expr: flow_input.dry_run
+            type: javascript
+      summary: Delivers a message to Slack
+  groups: []
+schema:
+  order:
+    - payload
+    - dry_run
+  properties:
+    payload:
+      default: null
+      type: object
+      description: ""
+    dry_run:
+      default: false
+      type: boolean
+      description: ""
+  required: []
